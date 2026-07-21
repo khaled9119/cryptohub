@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoHub - العملات المشفرة</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b0e17; color: #e0e6f0; min-height: 100vh; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #151b2b; }
+::-webkit-scrollbar-thumb { background: #2a3550; border-radius: 3px; }
+
+.container { max-width: 1400px; margin: 0 auto; padding: 16px 20px; }
+
+/* Header */
+header { background: linear-gradient(135deg, #1a2332, #0f1a2e); border-bottom: 1px solid #2a3550; padding: 12px 0; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+header .container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #f7931a, #ffae4a); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #1a1a2e; }
+.logo h1 { font-size: 20px; font-weight: 700; background: linear-gradient(90deg, #f7931a, #627eea); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.header-info { display: flex; align-items: center; gap: 14px; font-size: 12px; color: #8899bb; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; display: inline-block; animation: pulse 2s infinite; vertical-align: middle; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.refresh-btn { padding: 5px 14px; border: 1px solid #2a3550; border-radius: 6px; background: #1a2332; color: #e0e6f0; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+.refresh-btn:hover { background: #2a3550; border-color: #627eea; }
+
+/* Market Stats Bar */
+.market-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.stat-card { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 14px 16px; text-align: center; }
+.stat-card .label { font-size: 11px; color: #667799; margin-bottom: 4px; }
+.stat-card .value { font-size: 16px; font-weight: 700; }
+.stat-card .change { font-size: 12px; margin-top: 2px; }
+.stat-card .change.up { color: #22c55e; }
+.stat-card .change.down { color: #ef4444; }
+
+/* Market Grid */
+.section-title { font-size: 18px; font-weight: 700; margin: 20px 0 12px; display: flex; align-items: center; gap: 10px; }
+.section-title .badge { font-size: 11px; padding: 2px 10px; border-radius: 10px; background: #2a3550; color: #8899bb; font-weight: 400; }
+
+.search-bar { width: 100%; padding: 10px 16px; background: #151b2b; border: 1px solid #2a3550; border-radius: 8px; color: #e0e6f0; font-size: 13px; margin-bottom: 14px; outline: none; transition: border 0.2s; }
+.search-bar:focus { border-color: #627eea; }
+.search-bar::placeholder { color: #556688; }
+
+.market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.coin-card { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 14px; transition: all 0.25s; cursor: pointer; }
+.coin-card:hover { border-color: #627eea; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(98,126,234,0.08); }
+.coin-card.active { border-color: #f7931a; box-shadow: 0 0 16px rgba(247,147,26,0.12); }
+.coin-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.coin-rank { font-size: 10px; color: #556688; font-weight: 600; min-width: 18px; }
+.coin-img { width: 24px; height: 24px; border-radius: 50%; }
+.coin-img-fallback { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg,#627eea,#f7931a); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.coin-name { font-weight: 600; font-size: 13px; }
+.coin-symbol { font-size: 11px; color: #8899bb; }
+.coin-price { font-size: 16px; font-weight: 700; margin: 2px 0; }
+.coin-change { font-size: 12px; font-weight: 500; }
+.coin-change.up { color: #22c55e; }
+.coin-change.down { color: #ef4444; }
+.coin-mcap { font-size: 11px; color: #667799; margin-top: 4px; }
+.no-results { text-align: center; padding: 40px; color: #556688; grid-column: 1/-1; }
+
+/* Analysis */
+.analysis-section { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 18px; }
+@media (max-width:800px) { .analysis-section { grid-template-columns:1fr; } }
+.chart-box { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 16px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+.chart-title { font-size: 14px; font-weight: 600; }
+.chart-controls { display: flex; gap: 4px; }
+.chart-controls button { padding: 3px 12px; border: 1px solid #2a3550; border-radius: 5px; background: transparent; color: #8899bb; cursor: pointer; font-size: 11px; transition: all 0.2s; }
+.chart-controls button:hover { border-color: #627eea; color: #e0e6f0; }
+.chart-controls button.active { background: #627eea; border-color: #627eea; color: #fff; }
+.chart-wrapper { position: relative; height: 300px; }
+
+.stats-box { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; }
+.stats-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e2840; font-size: 12px; }
+.stat-row:last-child { border-bottom: none; }
+.stat-label { color: #8899bb; }
+.stat-value { font-weight: 500; }
+.stat-value.positive { color: #22c55e; }
+.stat-value.negative { color: #ef4444; }
+
+/* News */
+.news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.news-card { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 16px; transition: all 0.25s; display: flex; flex-direction: column; }
+.news-card:hover { border-color: #2a3550; transform: translateY(-1px); }
+.news-img-wrapper { margin: -16px -16px 10px; border-radius: 10px 10px 0 0; overflow: hidden; max-height: 140px; }
+.news-img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.news-img-fallback { margin: -16px -16px 10px; height: 80px; background: linear-gradient(135deg,#1a2332,#2a3550); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: #4a5a7a; border-radius: 10px 10px 0 0; }
+.news-source { font-size: 10px; color: #627eea; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.news-title { font-size: 13px; font-weight: 600; line-height: 1.5; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.news-title a { color: #e0e6f0; text-decoration: none; }
+.news-title a:hover { color: #627eea; }
+.news-desc { font-size: 12px; color: #8899bb; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1; }
+.news-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.news-time { font-size: 10px; color: #556688; }
+.news-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 9px; }
+.news-tag.regulation { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+.news-tag.tech { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+.news-tag.market { background: rgba(98,126,234,0.12); color: #627eea; border: 1px solid rgba(98,126,234,0.25); }
+.news-tag.general { background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.25); }
+
+.loading { text-align: center; padding: 30px; color: #556688; }
+.loading .spinner { width: 30px; height: 30px; border: 3px solid #1e2840; border-top-color: #627eea; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-msg { text-align: center; padding: 24px; color: #ef4444; }
+.error-msg .retry { margin-top: 8px; padding: 5px 18px; border: 1px solid #ef4444; border-radius: 5px; background: transparent; color: #ef4444; cursor: pointer; font-size: 12px; }
+.error-msg .retry:hover { background: rgba(239,68,68,0.1); }
+
+footer { text-align: center; padding: 24px 0 16px; color: #334466; font-size: 11px; border-top: 1px solid #1e2840; margin-top: 30px; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+<div class="container">
+<div class="logo">
+<div class="logo-icon">฿</div>
+<h1>CryptoHub</h1>
+</div>
+<div class="header-info">
+<span><span class="status-dot"></span> مباشر</span>
+<span id="lastUpdate">...</span>
+<button class="refresh-btn" onclick="refreshAll()">تحديث</button>
+</div>
+</div>
+</header>
+
+<main class="container">
+
+<div class="market-stats" id="marketStats">
+<div class="stat-card"><div class="label">القيمة السوقية</div><div class="value" id="totalMcap">...</div></div>
+<div class="stat-card"><div class="label">حجم 24h</div><div class="value" id="totalVol">...</div></div>
+<div class="stat-card"><div class="label">هيمنة BTC</div><div class="value" id="btcDominance">...</div></div>
+<div class="stat-card"><div class="label">مؤشر الخوف</div><div class="value" id="fearGreed">...</div></div>
+</div>
+
+<div class="section-title">السوق <span class="badge" id="coinCount">0 عملة</span></div>
+<input class="search-bar" id="searchInput" placeholder="ابحث عن عملة..." oninput="filterCoins()">
+
+<div class="market-grid" id="marketGrid"></div>
+
+<div class="section-title">تحليل فني <span class="badge" id="selectedCoinLabel">BTC</span></div>
+<div class="analysis-section">
+<div class="chart-box">
+<div class="chart-header">
+<div class="chart-title">الرسم البياني للسعر</div>
+<div class="chart-controls">
+<button class="active" data-days="7" onclick="changeChartDays(7)">7 أيام</button>
+<button data-days="14" onclick="changeChartDays(14)">14 يوم</button>
+<button data-days="30" onclick="changeChartDays(30)">30 يوم</button>
+<button data-days="90" onclick="changeChartDays(90)">3 شهور</button>
+</div>
+</div>
+<div class="chart-wrapper">
+<canvas id="priceChart"></canvas>
+</div>
+</div>
+<div class="stats-box" id="statsBox">
+<div class="stats-title">إحصائيات السعر</div>
+<div class="loading" id="statsLoading"><div class="spinner"></div></div>
+<div id="statsContent"></div>
+</div>
+</div>
+
+<div class="section-title">الأخبار</div>
+<div id="newsContainer"><div class="loading"><div class="spinner"></div></div></div>
+
+</main>
+
+<footer>
+<div class="container">
+CryptoHub v2 | CoinGecko + RSS | <span id="footerUpdate">...</span>
+</div>
+</footer>
+
+<script>
+let priceChart = null;
+let chartDays = 7;
+let selectedCoinId = 'bitcoin';
+let allCoins = [];
+
+const coinIds = ['bitcoin','ethereum','tether','bnb','solana','ripple','usd-coin','cardano','dogecoin','avalanche-2','tron','chainlink','polkadot','stellar','shiba-inu','sui','aptos','litecoin','bitcoin-cash','unus-sed-leo'];
+
+const coinDisplayMap = Object.fromEntries(coinIds.map((id,i)=>[id,['BTC','ETH','USDT','BNB','SOL','XRP','USDC','ADA','DOGE','AVAX','TRX','LINK','DOT','XLM','SHIB','SUI','APT','LTC','BCH','LEO'][i]]));
+
+function fmtPrice(v) { return v < 1 ? '$' + v.toFixed(4) : v < 100 ? '$' + v.toFixed(2) : '$' + v.toLocaleString(undefined,{maximumFractionDigits:0}); }
+function fmtLarge(v) { return v >= 1e12 ? '$'+(v/1e12).toFixed(2)+'T' : v >= 1e9 ? '$'+(v/1e9).toFixed(2)+'B' : v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : '$'+v.toLocaleString(); }
+function timeAgo(ts) { if(typeof ts==='string'){const d=new Date(ts);if(!isNaN(d))ts=Math.floor(d/1000);else return ts} const s=Math.floor(Date.now()/1000-ts); if(s<60) return s+'ث'; if(s<3600) return Math.floor(s/60)+'د'; if(s<86400) return Math.floor(s/3600)+'س'; return Math.floor(s/86400)+'ي'; }
+function formatDate(d) { return d.toLocaleDateString('ar-SA',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+function classifyNews(item) {
+  const t = (item.title+' '+item.body).toLowerCase();
+  if(/regulat|sec|cftc|clarity act|congress|senate|bill|law|ban|cbdc|central bank|sanction|regulation/i.test(t)) return 'regulation';
+  if(/btc|bitcoin|ethereum|altcoin|bull|bear|crypto.*price|market|cpi|inflation|fed|etf|halving/i.test(t)) return 'market';
+  if(/blockchain|defi|nft|web3|layer.*2|scaling|protocol|contract|dao|metaverse|ai/i.test(t)) return 'tech';
+  return 'general';
+}
+
+async function fetchGlobal() {
+  const r = await fetch('https://api.coingecko.com/api/v3/global');
+  if(!r.ok) throw Error();
+  return r.json();
+}
+
+async function fetchFearGreed() {
+  try {
+    const r = await fetch('https://api.alternative.me/fng/?limit=1');
+    const d = await r.json();
+    return d.data[0];
+  } catch { return null; }
+}
+
+async function fetchMarketData() {
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coinIds.join(',')}&order=market_cap_desc&per_page=50&page=1&sparkline=false`;
+  const r = await fetch(url);
+  if(!r.ok) throw Error();
+  return r.json();
+}
+
+function renderMarketStats(global, fg) {
+  const d = global.data;
+  document.getElementById('totalMcap').textContent = fmtLarge(d.total_market_cap.usd);
+  document.getElementById('totalVol').textContent = fmtLarge(d.total_volume.usd);
+  document.getElementById('btcDominance').textContent = d.market_cap_percentage.btc.toFixed(1)+'%';
+  if(fg) {
+    const el = document.getElementById('fearGreed');
+    el.textContent = fg.value + ' - ' + fg.value_classification;
+    el.style.color = fg.value > 50 ? '#22c55e' : '#ef4444';
+  } else {
+    document.getElementById('fearGreed').textContent = 'N/A';
+  }
+}
+
+function renderMarket(data) {
+  allCoins = data;
+  document.getElementById('coinCount').textContent = data.length + ' عملة';
+  filterCoins();
+}
+
+function filterCoins() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = allCoins.filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
+  const grid = document.getElementById('marketGrid');
+  if(filtered.length === 0) {
+    grid.innerHTML = '<div class="no-results">لا توجد عملة بهذا الاسم</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(c => {
+    const sym = c.symbol.toUpperCase();
+    return `<div class="coin-card ${c.id===selectedCoinId?'active':''}" onclick="selectCoin('${c.id}')">
+      <div class="coin-header">
+        <span class="coin-rank">#${c.market_cap_rank}</span>
+        <img class="coin-img" src="${c.image}" alt="" loading="lazy" onerror="this.outerHTML='<span class=\\'coin-img-fallback\\'>${sym[0]}</span>'">
+        <span class="coin-name">${sym}</span>
+      </div>
+      <div class="coin-price">${fmtPrice(c.current_price)}</div>
+      <div class="coin-change ${c.price_change_percentage_24h>=0?'up':'down'}">${c.price_change_percentage_24h>=0?'+':''}${c.price_change_percentage_24h?.toFixed(2)||'0'}%</div>
+      <div class="coin-mcap">حجم ${fmtLarge(c.market_cap)}</div>
+    </div>`;
+  }).join('');
+}
+
+async function fetchOHLC(coinId, days) {
+  const r = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`);
+  if(!r.ok) throw Error();
+  return r.json();
+}
+
+function renderChart(data) {
+  const canvas = document.getElementById('priceChart');
+  const ctx = canvas.getContext('2d');
+  if(priceChart) priceChart.destroy();
+
+  const labels = data.map(d => new Date(d[0]));
+  const prices = data.map(d => d[4]);
+  const fmt = chartDays <= 7 ? {hour:'2-digit',minute:'2-digit'} : {month:'short',day:'numeric'};
+
+  priceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'USD',
+        data: prices,
+        borderColor: '#627eea',
+        backgroundColor: ctx => { const g=ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height); g.addColorStop(0,'rgba(98,126,234,0.25)'); g.addColorStop(1,'rgba(98,126,234,0)'); return g; },
+        fill: true,
+        tension: 0.2,
+        pointRadius: 0,
+        pointHitRadius: 8,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2332',
+          titleColor: '#e0e6f0',
+          bodyColor: '#e0e6f0',
+          borderColor: '#2a3550',
+          borderWidth: 1,
+          padding: 8,
+          displayColors: false,
+          callbacks: {
+            title: items => new Date(items[0].parsed.x).toLocaleDateString('ar-SA', fmt),
+            label: item => '$' + item.parsed.y.toLocaleString(undefined,{maximumFractionDigits:2})
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#1e2840', drawBorder: false }, ticks: { color: '#556688', maxRotation: 0, maxTicksLimit: chartDays<=7?8:10, callback: (v,i,ticks) => new Date(ticks[i].value).toLocaleDateString('ar-SA', fmt) } },
+        y: { grid: { color: '#1e2840', drawBorder: false }, ticks: { color: '#556688', callback: v => '$'+v.toLocaleString() }, position: 'right' }
+      }
+    }
+  });
+}
+
+async function renderStats(coinId) {
+  const box = document.getElementById('statsContent');
+  const loading = document.getElementById('statsLoading');
+  loading.classList.remove('hidden');
+  box.innerHTML = '';
+  try {
+    const r = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`);
+    if(!r.ok) throw Error();
+    const d = await r.json();
+    const m = d.market_data;
+    loading.classList.add('hidden');
+    const chg24 = m.price_change_percentage_24h;
+    const chg7 = m.price_change_percentage_7d;
+    const chg30 = m.price_change_percentage_30d;
+    box.innerHTML = `
+      <div class="stat-row"><span class="stat-label">السعر</span><span class="stat-value">${fmtPrice(m.current_price.usd)}</span></div>
+      <div class="stat-row"><span class="stat-label">أعلى 24h</span><span class="stat-value positive">${fmtPrice(m.high_24h.usd)}</span></div>
+      <div class="stat-row"><span class="stat-label">أدنى 24h</span><span class="stat-value negative">${fmtPrice(m.low_24h.usd)}</span></div>
+      <div class="stat-row"><span class="stat-label">24h</span><span class="stat-value ${chg24>=0?'positive':'negative'}">${chg24?.toFixed(2)||'N/A'}%</span></div>
+      <div class="stat-row"><span class="stat-label">7d</span><span class="stat-value ${(chg7||0)>=0?'positive':'negative'}">${chg7?.toFixed(2)||'N/A'}%</span></div>
+      <div class="stat-row"><span class="stat-label">30d</span><span class="stat-value ${(chg30||0)>=0?'positive':'negative'}">${chg30?.toFixed(2)||'N/A'}%</span></div>
+      <div class="stat-row"><span class="stat-label">أعلى تاريخي</span><span class="stat-value">${m.ath?fmtPrice(m.ath.usd):'N/A'}</span></div>
+      <div class="stat-row"><span class="stat-label">حجم 24h</span><span class="stat-value">${fmtLarge(m.total_volume.usd)}</span></div>
+      <div class="stat-row"><span class="stat-label">قيمة سوقية</span><span class="stat-value">${fmtLarge(m.market_cap.usd)}</span></div>
+      <div class="stat-row"><span class="stat-label">الترتيب</span><span class="stat-value">#${d.market_cap_rank}</span></div>
+    `;
+  } catch {
+    loading.classList.add('hidden');
+    box.innerHTML = '<div class="error-msg">فشل التحميل</div>';
+  }
+}
+
+async function selectCoin(id) {
+  selectedCoinId = id;
+  document.getElementById('selectedCoinLabel').textContent = coinDisplayMap[id] || id.toUpperCase();
+  document.querySelectorAll('.coin-card').forEach(c => c.classList.remove('active'));
+  const cards = document.querySelectorAll('.coin-card');
+  const idx = allCoins.findIndex(c => c.id === id);
+  if(cards[idx]) cards[idx].classList.add('active');
+  await loadChart(id);
+  await renderStats(id);
+}
+
+async function loadChart(coinId) {
+  try {
+    renderChart(await fetchOHLC(coinId, chartDays));
+  } catch {
+    document.getElementById('priceChart').parentElement.innerHTML = '<div class="error-msg">فشل الرسم البياني</div>';
+  }
+}
+
+function changeChartDays(days) {
+  chartDays = days;
+  document.querySelectorAll('.chart-controls button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.chart-controls button[data-days="${days}"]`).classList.add('active');
+  loadChart(selectedCoinId);
+}
+
+async function fetchNews() {
+  const r = await fetch('/api/news');
+  if(!r.ok) throw Error();
+  return r.json();
+}
+
+function extractImg(body) {
+  if(!body) return null;
+  const m = body.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return m ? m[1] : null;
+}
+
+function renderNews(data) {
+  const container = document.getElementById('newsContainer');
+  if(!data || !data.length) {
+    container.innerHTML = '<div class="error-msg">لا توجد أخبار</div>';
+    return;
+  }
+  container.innerHTML = `<div class="news-grid">${data.slice(0,15).map(n => {
+    const img = extractImg(n.body);
+    const tag = classifyNews(n);
+    return `<div class="news-card">
+      ${img ? `<div class="news-img-wrapper"><img class="news-img" src="/img?url=${encodeURIComponent(img)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'news-img-fallback\\'>${n.source[0].toUpperCase()}</div>'"></div>` : `<div class="news-img-fallback">${n.source[0].toUpperCase()}</div>`}
+      <div class="news-source">${n.source||'مصدر'}</div>
+      <div class="news-title"><a href="${n.url}" target="_blank" rel="noopener">${n.title}</a></div>
+      <div class="news-desc">${n.body ? n.body.replace(/<[^>]*>/g,'').substring(0,100)+'...' : ''}</div>
+      <div class="news-footer">
+        <span class="news-time">${timeAgo(n.published_on)}</span>
+        <span class="news-tag ${tag}">${tag=='regulation'?'تنظيمية':tag=='market'?'سوق':tag=='tech'?'تقنية':'عامة'}</span>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function refreshAll() {
+  const now = new Date();
+  document.getElementById('lastUpdate').textContent = formatDate(now);
+  document.getElementById('footerUpdate').textContent = formatDate(now);
+
+  try {
+    const [global, fg, market] = await Promise.all([
+      fetchGlobal(),
+      fetchFearGreed(),
+      fetchMarketData()
+    ]);
+    renderMarketStats(global, fg);
+    renderMarket(market);
+  } catch {
+    document.getElementById('marketGrid').innerHTML = '<div class="error-msg">فشل تحميل السوق</div>';
+  }
+
+  await selectCoin(selectedCoinId);
+
+  try {
+    renderNews(await fetchNews());
+  } catch {
+    document.getElementById('newsContainer').innerHTML = '<div class="error-msg">فشل تحميل الأخبار</div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', refreshAll);
+setInterval(refreshAll, 120000);
+</script>
+</body>
+</html>

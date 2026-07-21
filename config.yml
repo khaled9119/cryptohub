@@ -1,0 +1,5 @@
+tunnel: ed74fe63-45ec-48d4-948f-9008f5ba0f12
+credentials-file: C:\Users\Dell Precision\.cloudflared\ed74fe63-45ec-48d4-948f-9008f5ba0f12.json
+
+ingress:
+  - service: http://localhost:8765

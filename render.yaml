@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: cryptohub
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python news_server.py
+    healthCheckPath: /api/health
