@@ -7,6 +7,7 @@ import threading
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, unquote
+import re
 
 FEEDS = [
     "https://cointelegraph.com/rss",
@@ -35,24 +36,55 @@ def fetch_feed(url):
         channel = root.find("channel")
         if channel is not None:
             for item in channel.findall("item"):
+                img = ""
+                mc = item.find("media:content", {"media": "http://search.yahoo.com/mrss/"})
+                if mc is not None:
+                    img = mc.get("url", "")
+                if not img:
+                    mt = item.find("media:thumbnail", {"media": "http://search.yahoo.com/mrss/"})
+                    if mt is not None:
+                        img = mt.get("url", "")
+                if not img:
+                    enc = item.find("enclosure")
+                    if enc is not None and enc.get("type", "").startswith("image"):
+                        img = enc.get("url", "")
+                if not img:
+                    m = item.findtext("description", "")
+                    match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', m)
+                    if match:
+                        img = match.group(1)
                 items.append({
                     "title": item.findtext("title", ""),
                     "url": item.findtext("link", ""),
                     "body": item.findtext("description", ""),
                     "published_on": item.findtext("pubDate", ""),
                     "source": item.findtext("source", "") or url.split("/")[2],
+                    "image": img,
                 })
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         if not items:
             for entry in root.findall("atom:entry", ns):
                 link_el = entry.find("atom:link", ns)
                 desc_el = entry.find("atom:content", ns)
+                img = ""
+                mc = entry.find("media:content", {"media": "http://search.yahoo.com/mrss/"})
+                if mc is not None:
+                    img = mc.get("url", "")
+                if not img:
+                    mt = entry.find("media:thumbnail", {"media": "http://search.yahoo.com/mrss/"})
+                    if mt is not None:
+                        img = mt.get("url", "")
+                if not img and desc_el is not None:
+                    match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', desc_el.text or "")
+                    if match:
+                        img = match.group(1)
                 items.append({
                     "title": entry.findtext("atom:title", "", ns),
                     "url": link_el.get("href") if link_el is not None else "",
                     "body": (desc_el.text or "")[:500] if desc_el is not None else "",
                     "published_on": entry.findtext("atom:published", "", ns),
                     "source": entry.findtext("atom:author/atom:name", "", ns) or url.split("/")[2],
+                    "image": img,
                 })
         return items
     except Exception as e:

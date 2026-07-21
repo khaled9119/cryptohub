@@ -388,9 +388,10 @@ async function fetchNews() {
   return r.json();
 }
 
-function extractImg(body) {
-  if(!body) return null;
-  const m = body.match(/<img[^>]+src=["']([^"']+)["']/i);
+function extractImg(item) {
+  if(item.image) return item.image;
+  if(!item.body) return null;
+  const m = item.body.match(/<img[^>]+src=["']([^"']+)["']/i);
   return m ? m[1] : null;
 }
 
@@ -401,7 +402,7 @@ function renderNews(data) {
     return;
   }
   container.innerHTML = `<div class="news-grid">${data.slice(0,15).map(n => {
-    const img = extractImg(n.body);
+    const img = extractImg(n);
     const tag = classifyNews(n);
     return `<div class="news-card">
       ${img ? `<div class="news-img-wrapper"><img class="news-img" src="/img?url=${encodeURIComponent(img)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'news-img-fallback\\'>${n.source[0].toUpperCase()}</div>'"></div>` : `<div class="news-img-fallback">${n.source[0].toUpperCase()}</div>`}
