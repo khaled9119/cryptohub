@@ -173,7 +173,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(c["data"], content_type=c["type"], extra_headers={"Cache-Control": "max-age=3600", "Access-Control-Allow-Origin": "*"})
                 return
 
-            hdrs = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            hdrs = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://www.cryptotracker.info/"}
             try:
                 r = requests.get(img_url, headers=hdrs, timeout=10)
                 r.raise_for_status()
@@ -182,9 +182,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(r.content, content_type=ctype, extra_headers={"Cache-Control": "max-age=3600", "Access-Control-Allow-Origin": "*"})
             except Exception as e:
                 print(f"Img proxy: {e}")
-                self.send_response(302)
-                self.send_header("Location", img_url)
-                self.end_headers()
+                hdrs2 = {"User-Agent": hdrs["User-Agent"], "Referer": img_url}
+                try:
+                    r2 = requests.get(img_url, headers=hdrs2, timeout=10)
+                    r2.raise_for_status()
+                    ctype = r2.headers.get("Content-Type", "image/jpeg")
+                    self._send(r2.content, content_type=ctype, extra_headers={"Cache-Control": "max-age=3600", "Access-Control-Allow-Origin": "*"})
+                except:
+                    self.send_response(302)
+                    self.send_header("Location", img_url)
+                    self.end_headers()
             return
 
         # API
