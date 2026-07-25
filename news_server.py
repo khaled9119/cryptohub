@@ -25,6 +25,8 @@ HTML_FILE = os.path.join(THIS_DIR, "crypto-dashboard.html")
 
 img_cache = {}
 IMG_CACHE_TTL = 3600
+cg_cache = {}
+CG_CACHE_TTL = 90
 
 def fetch_feed(url):
     try:
@@ -197,26 +199,33 @@ class Handler(BaseHTTPRequestHandler):
         # CoinGecko proxy (server-side to avoid CORS/rate limits)
         if path.startswith("/api/proxy/"):
             target = path[11:]
+            cache_key = f"{target}:{parsed.query}"
+            now_cg = time.time()
+            if cache_key in cg_cache and now_cg - cg_cache[cache_key]["time"] < CG_CACHE_TTL:
+                self._send(cg_cache[cache_key]["data"], content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
+                return
             cg_headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
             try:
                 if target == "global":
                     r = requests.get("https://api.coingecko.com/api/v3/global", headers=cg_headers, timeout=10)
                 elif target == "markets":
                     ids = parsed.query.split("=")[1] if "=" in parsed.query else ""
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={ids}&order=market_cap_desc&per_page=50&page=1&sparkline=false", headers=cg_headers, timeout=10)
+                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={ids}&order=market_cap_desc&per_page=50&page=1&sparkline=false", headers=cg_headers, timeout=15)
                 elif target == "ohlc":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}/ohlc?vs_currency=usd&days={q.get('days','7')}", headers=cg_headers, timeout=10)
+                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}/ohlc?vs_currency=usd&days={q.get('days','7')}", headers=cg_headers, timeout=15)
                 elif target == "coin":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false", headers=cg_headers, timeout=10)
+                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false", headers=cg_headers, timeout=15)
                 elif target == "fng":
                     r = requests.get("https://api.alternative.me/fng/?limit=1", headers=cg_headers, timeout=10)
                 else:
                     self._send(b'{"error":"unknown"}', content_type="application/json")
                     return
                 r.raise_for_status()
-                self._send(r.content, content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
+                body = r.content
+                cg_cache[cache_key] = {"data": body, "time": now_cg}
+                self._send(body, content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
             except Exception as e:
                 print(f"CG proxy {target}: {e}")
                 self._send(json.dumps({"error": str(e)}).encode(), status=502, content_type="application/json")
