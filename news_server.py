@@ -194,7 +194,35 @@ class Handler(BaseHTTPRequestHandler):
                     self.end_headers()
             return
 
-        # API
+        # CoinGecko proxy (server-side to avoid CORS/rate limits)
+        if path.startswith("/api/proxy/"):
+            target = path[11:]
+            cg_headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+            try:
+                if target == "global":
+                    r = requests.get("https://api.coingecko.com/api/v3/global", headers=cg_headers, timeout=10)
+                elif target == "markets":
+                    ids = parsed.query.split("=")[1] if "=" in parsed.query else ""
+                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={ids}&order=market_cap_desc&per_page=50&page=1&sparkline=false", headers=cg_headers, timeout=10)
+                elif target == "ohlc":
+                    q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
+                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}/ohlc?vs_currency=usd&days={q.get('days','7')}", headers=cg_headers, timeout=10)
+                elif target == "coin":
+                    q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
+                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false", headers=cg_headers, timeout=10)
+                elif target == "fng":
+                    r = requests.get("https://api.alternative.me/fng/?limit=1", headers=cg_headers, timeout=10)
+                else:
+                    self._send(b'{"error":"unknown"}', content_type="application/json")
+                    return
+                r.raise_for_status()
+                self._send(r.content, content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
+            except Exception as e:
+                print(f"CG proxy {target}: {e}")
+                self._send(json.dumps({"error": str(e)}).encode(), status=502, content_type="application/json")
+            return
+
+        # News & health API
         if time.time() - news_cache["time"] > CACHE_TTL:
             threading.Thread(target=refresh_cache, daemon=True).start()
 

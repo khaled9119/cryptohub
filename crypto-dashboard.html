@@ -202,22 +202,21 @@ function classifyNews(item) {
 }
 
 async function fetchGlobal() {
-  const r = await fetch('https://api.coingecko.com/api/v3/global');
+  const r = await fetch('/api/proxy/global');
   if(!r.ok) throw Error();
   return r.json();
 }
 
 async function fetchFearGreed() {
   try {
-    const r = await fetch('https://api.alternative.me/fng/?limit=1');
+    const r = await fetch('/api/proxy/fng');
     const d = await r.json();
     return d.data[0];
   } catch { return null; }
 }
 
 async function fetchMarketData() {
-  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coinIds.join(',')}&order=market_cap_desc&per_page=50&page=1&sparkline=false`;
-  const r = await fetch(url);
+  const r = await fetch(`/api/proxy/markets?ids=${coinIds.join(',')}`);
   if(!r.ok) throw Error();
   return r.json();
 }
@@ -266,7 +265,7 @@ function filterCoins() {
 }
 
 async function fetchOHLC(coinId, days) {
-  const r = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`);
+  const r = await fetch(`/api/proxy/ohlc?id=${coinId}&days=${days}`);
   if(!r.ok) throw Error();
   return r.json();
 }
@@ -330,7 +329,7 @@ async function renderStats(coinId) {
   loading.classList.remove('hidden');
   box.innerHTML = '';
   try {
-    const r = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`);
+    const r = await fetch(`/api/proxy/coin?id=${coinId}`);
     if(!r.ok) throw Error();
     const d = await r.json();
     const m = d.market_data;
