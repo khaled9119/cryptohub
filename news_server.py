@@ -258,12 +258,10 @@ class Handler(BaseHTTPRequestHandler):
                 elif target == "ohlc":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
                     fsym = {"bitcoin":"BTC","ethereum":"ETH","solana":"SOL","ripple":"XRP","cardano":"ADA","dogecoin":"DOGE","polkadot":"DOT","litecoin":"LTC","chainlink":"LINK","avalanche-2":"AVAX","polygon":"MATIC","shiba-inu":"SHIB","tron":"TRX","bitcoin-cash":"BCH","stellar":"XLM","uniswap":"UNI"}.get(q.get("id", "bitcoin"), q.get("id", "bitcoin").upper()[:4])
-                    days = int(q.get("days", "7"))
-                    limit = days * 24 if days <= 7 else days
-                    r = requests.get(f"https://min-api.cryptocompare.com/data/v2/histohour?fsym={fsym}&tsym=USD&limit={limit}", headers=hdrs, timeout=15)
+                    r = requests.get(f"https://api.mexc.com/api/v3/klines?symbol={fsym}USDT&interval=1h&limit=168", headers=hdrs, timeout=15)
                     r.raise_for_status()
-                    raw = r.json()["Data"]["Data"]
-                    body = json.dumps([[x["time"]*1000, x["open"], x["high"], x["low"], x["close"], x["volumeto"]] for x in raw]).encode()
+                    raw = r.json()
+                    body = json.dumps([[int(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5])] for x in raw]).encode()
                 elif target == "coin":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
                     cid = pap_id(q.get("id", "bitcoin"))
