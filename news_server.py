@@ -28,6 +28,28 @@ IMG_CACHE_TTL = 3600
 cg_cache = {}
 CG_CACHE_TTL = 120
 
+# CoinGecko-to-CoinPaprika ID mapping
+COIN_MAP = {
+    "bitcoin": "btc-bitcoin",
+    "ethereum": "eth-ethereum",
+    "solana": "sol-solana",
+    "ripple": "xrp-ripple",
+    "cardano": "ada-cardano",
+    "dogecoin": "doge-dogecoin",
+    "polkadot": "dot-polkadot",
+    "litecoin": "ltc-litecoin",
+    "chainlink": "link-chainlink",
+    "avalanche-2": "avax-avalanche-2",
+    "polygon": "matic-polygon",
+    "shiba-inu": "shib-shiba-inu",
+    "tron": "trx-tron",
+    "bitcoin-cash": "bch-bitcoin-cash",
+    "stellar": "xlm-stellar",
+    "uniswap": "uni-uniswap",
+}
+def pap_id(cg_id):
+    return COIN_MAP.get(cg_id, cg_id)
+
 def fetch_feed(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -196,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.end_headers()
             return
 
-        # Crypto API proxy (CoinGecko with caching + alternative.me)
+        # Crypto API proxy (CoinPaprika + alternative.me - avoids CoinGecko rate limits)
         if path.startswith("/api/proxy/"):
             target = path[11:]
             cache_key = f"{target}:{parsed.query}"
@@ -207,26 +229,70 @@ class Handler(BaseHTTPRequestHandler):
             hdrs = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept": "application/json"}
             try:
                 if target == "global":
-                    r = requests.get("https://api.coingecko.com/api/v3/global", headers=hdrs, timeout=15)
+                    r = requests.get("https://api.coinpaprika.com/v1/global", headers=hdrs, timeout=15)
+                    r.raise_for_status()
+                    g = r.json()
+                    body = json.dumps({"data": {"total_market_cap": {"usd": g["market_cap_usd"]}, "total_volume": {"usd": g["volume_24h_usd"]}, "market_cap_percentage": {"btc": g["bitcoin_dominance_percentage"]}}}).encode()
                 elif target == "markets":
-                    ids = parsed.query.split("=")[1] if "=" in parsed.query else ""
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={ids}&order=market_cap_desc&per_page=50&page=1&sparkline=false", headers=hdrs, timeout=15)
+                    ids_str = parsed.query.split("=")[1] if "=" in parsed.query else ""
+                    ids_list = [x.strip() for x in ids_str.split(",") if x.strip()]
+                    coins = []
+                    for cid in ids_list:
+                        pid = pap_id(cid)
+                        try:
+                            r = requests.get(f"https://api.coinpaprika.com/v1/tickers/{pid}", headers=hdrs, timeout=10)
+                            r.raise_for_status()
+                            t = r.json()
+                            coins.append({
+                                "id": cid, "symbol": t.get("symbol", "").lower(),
+                                "name": t.get("name", ""),
+                                "image": f"https://static.coinpaprika.com/coin/{t.get('id', cid)}/logo.png",
+                                "current_price": t["quotes"]["USD"]["price"],
+                                "price_change_percentage_24h": t["quotes"]["USD"]["percent_change_24h"],
+                                "market_cap": t["quotes"]["USD"]["market_cap"],
+                                "market_cap_rank": t.get("rank", 0)
+                            })
+                        except Exception:
+                            pass
+                    body = json.dumps(coins).encode()
                 elif target == "ohlc":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}/ohlc?vs_currency=usd&days={q.get('days','7')}", headers=hdrs, timeout=15)
+                    cid = pap_id(q.get("id", "bitcoin"))
+                    days = q.get("days", "7")
+                    now_ts = int(time.time())
+                    start = now_ts - int(days)*86400
+                    r = requests.get(f"https://api.coinpaprika.com/v1/coins/{cid}/ohlcv/historical?start={start}&end={now_ts}", headers=hdrs, timeout=15)
+                    r.raise_for_status()
+                    raw = r.json()
+                    body = json.dumps([[x["time_open"], x["open"], x["high"], x["low"], x["close"], x.get("volume", 0)] for x in raw]).encode()
                 elif target == "coin":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false", headers=hdrs, timeout=15)
+                    cid = pap_id(q.get("id", "bitcoin"))
+                    r = requests.get(f"https://api.coinpaprika.com/v1/tickers/{cid}", headers=hdrs, timeout=15)
+                    r.raise_for_status()
+                    t = r.json()
+                    u = t["quotes"]["USD"]
+                    body = json.dumps({
+                        "market_data": {
+                            "current_price": {"usd": u["price"]},
+                            "price_change_percentage_24h": u["percent_change_24h"],
+                            "price_change_percentage_7d": u.get("percent_change_7d", 0),
+                            "price_change_percentage_30d": u.get("percent_change_30d", 0),
+                            "high_24h": {"usd": u.get("ath_price", u["price"])},
+                            "low_24h": {"usd": 0},
+                            "total_volume": {"usd": u["volume_24h"]},
+                            "market_cap": {"usd": u["market_cap"]},
+                            "ath": {"usd": u.get("ath_price", u["price"])}
+                        },
+                        "market_cap_rank": t.get("rank", 0)
+                    }).encode()
                 elif target == "fng":
                     r = requests.get("https://api.alternative.me/fng/?limit=1", headers=hdrs, timeout=10)
+                    r.raise_for_status()
+                    body = r.content
                 else:
                     self._send(b'{"error":"unknown"}', content_type="application/json")
                     return
-                if r.status_code == 429:
-                    time.sleep(3)
-                    r = requests.get(r.url, headers=hdrs, timeout=15)
-                r.raise_for_status()
-                body = r.content
                 cg_cache[cache_key] = {"data": body, "time": now_cc}
                 self._send(body, content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
             except Exception as e:
