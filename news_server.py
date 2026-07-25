@@ -257,20 +257,13 @@ class Handler(BaseHTTPRequestHandler):
                     body = json.dumps(coins).encode()
                 elif target == "ohlc":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
-                    sym = q.get("id", "bitcoin").upper()[:3] + "USDT"
-                    if q.get("id", "") == "bitcoin": sym = "BTCUSDT"
-                    elif q.get("id", "") == "ethereum": sym = "ETHUSDT"
-                    elif q.get("id", "") == "solana": sym = "SOLUSDT"
-                    elif q.get("id", "") == "ripple": sym = "XRPUSDT"
-                    elif q.get("id", "") == "cardano": sym = "ADAUSDT"
-                    elif q.get("id", "") == "dogecoin": sym = "DOGEUSDT"
-                    days = int(q.get("days", "7"))
-                    interval = "1h" if days <= 7 else "1d"
-                    limit = days * 24 if days <= 7 else days
-                    r = requests.get(f"https://api.binance.com/api/v3/klines?symbol={sym}&interval={interval}&limit={limit}", timeout=15)
+                    cid = q.get("id", "bitcoin")
+                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{cid}/ohlc?vs_currency=usd&days={q.get('days','7')}", headers=hdrs, timeout=15)
+                    if r.status_code == 429:
+                        time.sleep(2)
+                        r = requests.get(r.url, headers=hdrs, timeout=15)
                     r.raise_for_status()
-                    raw = r.json()
-                    body = json.dumps([[x[0], float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5])] for x in raw]).encode()
+                    body = r.content
                 elif target == "coin":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
                     cid = pap_id(q.get("id", "bitcoin"))
@@ -278,26 +271,15 @@ class Handler(BaseHTTPRequestHandler):
                     r.raise_for_status()
                     t = r.json()
                     u = t["quotes"]["USD"]
-                    sym = t.get("symbol", "BTC") + "USDT"
-                    if sym == "BTCUSDT": pass
-                    h24, l24, vol_h24 = u["price"], u["price"], u["volume_24h"]
-                    try:
-                        r2 = requests.get(f"https://api.binance.com/api/v3/ticker/24hr?symbol={sym}", timeout=10)
-                        if r2.status_code == 200:
-                            b = r2.json()
-                            h24 = float(b.get("highPrice", u["price"]))
-                            l24 = float(b.get("lowPrice", u["price"]))
-                            vol_h24 = float(b.get("volume", u["volume_24h"]))
-                    except: pass
                     body = json.dumps({
                         "market_data": {
                             "current_price": {"usd": u["price"]},
                             "price_change_percentage_24h": u["percent_change_24h"],
                             "price_change_percentage_7d": u.get("percent_change_7d", 0),
                             "price_change_percentage_30d": u.get("percent_change_30d", 0),
-                            "high_24h": {"usd": h24},
-                            "low_24h": {"usd": l24},
-                            "total_volume": {"usd": vol_h24},
+                            "high_24h": {"usd": u.get("ath_price", u["price"])},
+                            "low_24h": {"usd": 0},
+                            "total_volume": {"usd": u["volume_24h"]},
                             "market_cap": {"usd": u["market_cap"]},
                             "ath": {"usd": u.get("ath_price", u["price"])}
                         },
