@@ -213,6 +213,9 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 8765))
     print(f"Starting CryptoHub server on port {PORT}...")
-    refresh_cache()
+    threading.Thread(target=refresh_cache, daemon=True).start()
     print(f"Server ready! Open http://localhost:{PORT}")
-    HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+    from socketserver import ThreadingMixIn
+    class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+        allow_reuse_address = True
+    ThreadedHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

@@ -405,7 +405,7 @@ function renderNews(data) {
     const img = extractImg(n);
     const tag = classifyNews(n);
     return `<div class="news-card">
-      ${img ? `<div class="news-img-wrapper"><img class="news-img" src="/img?url=${encodeURIComponent(img)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'news-img-fallback\\'>${n.source[0].toUpperCase()}</div>'"></div>` : `<div class="news-img-fallback">${n.source[0].toUpperCase()}</div>`}
+      ${img ? `<div class="news-img-wrapper"><img class="news-img" src="${img}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'news-img-fallback\\'>${n.source[0].toUpperCase()}</div>'"></div>` : `<div class="news-img-fallback">${n.source[0].toUpperCase()}</div>`}
       <div class="news-source">${n.source||'مصدر'}</div>
       <div class="news-title"><a href="${n.url}" target="_blank" rel="noopener">${n.title}</a></div>
       <div class="news-desc">${n.body ? n.body.replace(/<[^>]*>/g,'').substring(0,100)+'...' : ''}</div>
