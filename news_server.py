@@ -26,7 +26,7 @@ HTML_FILE = os.path.join(THIS_DIR, "crypto-dashboard.html")
 img_cache = {}
 IMG_CACHE_TTL = 3600
 cg_cache = {}
-CG_CACHE_TTL = 90
+CG_CACHE_TTL = 120
 
 def fetch_feed(url):
     try:
@@ -196,38 +196,57 @@ class Handler(BaseHTTPRequestHandler):
                     self.end_headers()
             return
 
-        # CoinGecko proxy (server-side to avoid CORS/rate limits)
+        # Crypto API proxy (CoinCap + alternative.me - avoids CoinGecko rate limits)
         if path.startswith("/api/proxy/"):
             target = path[11:]
             cache_key = f"{target}:{parsed.query}"
-            now_cg = time.time()
-            if cache_key in cg_cache and now_cg - cg_cache[cache_key]["time"] < CG_CACHE_TTL:
+            now_cc = time.time()
+            if cache_key in cg_cache and now_cc - cg_cache[cache_key]["time"] < CG_CACHE_TTL:
                 self._send(cg_cache[cache_key]["data"], content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
                 return
-            cg_headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+            hdrs = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
             try:
                 if target == "global":
-                    r = requests.get("https://api.coingecko.com/api/v3/global", headers=cg_headers, timeout=10)
+                    r = requests.get("https://api.coincap.io/v2/assets?limit=20", headers=hdrs, timeout=15)
+                    r.raise_for_status()
+                    a = r.json()["data"]
+                    total_mcap = sum(float(x.get("marketCapUsd", 0) or 0) for x in a)
+                    btc_dom = (float(a[0]["marketCapUsd"]) / total_mcap * 100) if total_mcap else 0
+                    total_vol = sum(float(x.get("volumeUsd24Hr", 0) or 0) for x in a)
+                    body = json.dumps({"data": {"total_market_cap": {"usd": total_mcap}, "total_volume": {"usd": total_vol}, "market_cap_percentage": {"btc": btc_dom}}}).encode()
                 elif target == "markets":
                     ids = parsed.query.split("=")[1] if "=" in parsed.query else ""
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={ids}&order=market_cap_desc&per_page=50&page=1&sparkline=false", headers=cg_headers, timeout=15)
+                    r = requests.get(f"https://api.coincap.io/v2/assets?ids={ids}", headers=hdrs, timeout=15)
+                    r.raise_for_status()
+                    raw = r.json()["data"]
+                    body = json.dumps([{"id": x["id"], "symbol": x["symbol"].lower(), "name": x["name"], "image": f"https://assets.coincap.io/assets/icons/{x['symbol'].lower()}@2x.png", "current_price": float(x["priceUsd"] or 0), "price_change_percentage_24h": float(x.get("changePercent24Hr", 0) or 0), "market_cap": float(x.get("marketCapUsd", 0) or 0), "market_cap_rank": int(x.get("rank", 0))} for x in raw]).encode()
                 elif target == "ohlc":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}/ohlc?vs_currency=usd&days={q.get('days','7')}", headers=cg_headers, timeout=15)
+                    cid = q.get("id", "bitcoin")
+                    days = q.get("days", "7")
+                    interval = "h1" if int(days) <= 7 else "d1"
+                    r = requests.get(f"https://api.coincap.io/v2/candles?exchange=poloniex&interval={interval}&baseId={cid}&quoteId=usd", headers=hdrs, timeout=15)
+                    r.raise_for_status()
+                    raw = r.json()["data"]
+                    body = json.dumps([[x["period"], float(x["open"]), float(x["high"]), float(x["low"]), float(x["close"]), float(x["volume"])] for x in raw]).encode()
                 elif target == "coin":
                     q = dict(p.split("=") for p in parsed.query.split("&") if "=" in p)
-                    r = requests.get(f"https://api.coingecko.com/api/v3/coins/{q.get('id','bitcoin')}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false", headers=cg_headers, timeout=15)
+                    cid = q.get("id", "bitcoin")
+                    r = requests.get(f"https://api.coincap.io/v2/assets/{cid}", headers=hdrs, timeout=15)
+                    r.raise_for_status()
+                    x = r.json()["data"]
+                    body = json.dumps({"market_data": {"current_price": {"usd": float(x["priceUsd"] or 0)}, "price_change_percentage_24h": float(x.get("changePercent24Hr", 0) or 0), "price_change_percentage_7d": 0, "price_change_percentage_30d": 0, "high_24h": {"usd": float(x.get("vwap24Hr", x["priceUsd"]) or 0)}, "low_24h": {"usd": float(x.get("vwap24Hr", x["priceUsd"]) or 0)}, "total_volume": {"usd": float(x.get("volumeUsd24Hr", 0) or 0)}, "market_cap": {"usd": float(x.get("marketCapUsd", 0) or 0)}, "ath": {"usd": float(x.get("priceUsd", 0) or 0)}}, "market_cap_rank": int(x.get("rank", 0))}).encode()
                 elif target == "fng":
-                    r = requests.get("https://api.alternative.me/fng/?limit=1", headers=cg_headers, timeout=10)
+                    r = requests.get("https://api.alternative.me/fng/?limit=1", headers=hdrs, timeout=10)
+                    r.raise_for_status()
+                    body = r.content
                 else:
                     self._send(b'{"error":"unknown"}', content_type="application/json")
                     return
-                r.raise_for_status()
-                body = r.content
-                cg_cache[cache_key] = {"data": body, "time": now_cg}
+                cg_cache[cache_key] = {"data": body, "time": now_cc}
                 self._send(body, content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
             except Exception as e:
-                print(f"CG proxy {target}: {e}")
+                print(f"Proxy {target}: {e}")
                 self._send(json.dumps({"error": str(e)}).encode(), status=502, content_type="application/json")
             return
 
