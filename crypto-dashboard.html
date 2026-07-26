@@ -60,14 +60,7 @@ header .container { display: flex; justify-content: space-between; align-items: 
 .coin-mcap { font-size: 11px; color: #667799; margin-top: 4px; }
 .no-results { text-align: center; padding: 40px; color: #556688; grid-column: 1/-1; }
 
-.stats-box { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; margin-bottom: 18px; }
-.stats-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
-.stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e2840; font-size: 12px; }
-.stat-row:last-child { border-bottom: none; }
-.stat-label { color: #8899bb; }
-.stat-value { font-weight: 500; }
-.stat-value.positive { color: #22c55e; }
-.stat-value.negative { color: #ef4444; }
+
 
 /* News */
 .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
@@ -131,12 +124,7 @@ footer { text-align: center; padding: 24px 0 16px; color: #334466; font-size: 11
 
 <div class="market-grid" id="marketGrid"></div>
 
-<div class="section-title">تحليل فني <span class="badge" id="selectedCoinLabel">BTC</span></div>
-<div class="stats-box" id="statsBox" style="grid-column:1/-1">
-<div class="stats-title">إحصائيات السعر</div>
-<div class="loading" id="statsLoading"><div class="spinner"></div></div>
-<div id="statsContent"></div>
-</div>
+
 </div>
 
 <div class="section-title">الأخبار</div>
@@ -234,46 +222,12 @@ function filterCoins() {
   }).join('');
 }
 
-async function renderStats(coinId) {
-  const box = document.getElementById('statsContent');
-  const loading = document.getElementById('statsLoading');
-  loading.classList.remove('hidden');
-  box.innerHTML = '';
-  try {
-    const r = await fetch(`/api/proxy/coin?id=${coinId}`);
-    if(!r.ok) throw Error();
-    const d = await r.json();
-    const m = d.market_data;
-    loading.classList.add('hidden');
-    const chg24 = m.price_change_percentage_24h;
-    const chg7 = m.price_change_percentage_7d;
-    const chg30 = m.price_change_percentage_30d;
-    box.innerHTML = `
-      <div class="stat-row"><span class="stat-label">السعر</span><span class="stat-value">${fmtPrice(m.current_price.usd)}</span></div>
-      <div class="stat-row"><span class="stat-label">أعلى 24h</span><span class="stat-value positive">${fmtPrice(m.high_24h.usd)}</span></div>
-      <div class="stat-row"><span class="stat-label">أدنى 24h</span><span class="stat-value negative">${fmtPrice(m.low_24h.usd)}</span></div>
-      <div class="stat-row"><span class="stat-label">24h</span><span class="stat-value ${chg24>=0?'positive':'negative'}">${chg24?.toFixed(2)||'N/A'}%</span></div>
-      <div class="stat-row"><span class="stat-label">7d</span><span class="stat-value ${(chg7||0)>=0?'positive':'negative'}">${chg7?.toFixed(2)||'N/A'}%</span></div>
-      <div class="stat-row"><span class="stat-label">30d</span><span class="stat-value ${(chg30||0)>=0?'positive':'negative'}">${chg30?.toFixed(2)||'N/A'}%</span></div>
-      <div class="stat-row"><span class="stat-label">أعلى تاريخي</span><span class="stat-value">${m.ath?fmtPrice(m.ath.usd):'N/A'}</span></div>
-      <div class="stat-row"><span class="stat-label">حجم 24h</span><span class="stat-value">${fmtLarge(m.total_volume.usd)}</span></div>
-      <div class="stat-row"><span class="stat-label">قيمة سوقية</span><span class="stat-value">${fmtLarge(m.market_cap.usd)}</span></div>
-      <div class="stat-row"><span class="stat-label">الترتيب</span><span class="stat-value">#${d.market_cap_rank}</span></div>
-    `;
-  } catch {
-    loading.classList.add('hidden');
-    box.innerHTML = '<div class="error-msg">فشل التحميل</div>';
-  }
-}
-
 async function selectCoin(id) {
   selectedCoinId = id;
-  document.getElementById('selectedCoinLabel').textContent = coinDisplayMap[id] || id.toUpperCase();
   document.querySelectorAll('.coin-card').forEach(c => c.classList.remove('active'));
   const cards = document.querySelectorAll('.coin-card');
   const idx = allCoins.findIndex(c => c.id === id);
   if(cards[idx]) cards[idx].classList.add('active');
-  await renderStats(id);
 }
 
 async function fetchNews() {
