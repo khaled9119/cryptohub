@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CryptoHub - العملات المشفرة</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
-</script>
+
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0b0e17; color: #e0e6f0; min-height: 100vh; }
@@ -61,19 +60,7 @@ header .container { display: flex; justify-content: space-between; align-items: 
 .coin-mcap { font-size: 11px; color: #667799; margin-top: 4px; }
 .no-results { text-align: center; padding: 40px; color: #556688; grid-column: 1/-1; }
 
-/* Analysis */
-.analysis-section { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 18px; }
-@media (max-width:800px) { .analysis-section { grid-template-columns:1fr; } }
-.chart-box { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 16px; }
-.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
-.chart-title { font-size: 14px; font-weight: 600; }
-.chart-controls { display: flex; gap: 4px; }
-.chart-controls button { padding: 3px 12px; border: 1px solid #2a3550; border-radius: 5px; background: transparent; color: #8899bb; cursor: pointer; font-size: 11px; transition: all 0.2s; }
-.chart-controls button:hover { border-color: #627eea; color: #e0e6f0; }
-.chart-controls button.active { background: #627eea; border-color: #627eea; color: #fff; }
-.chart-wrapper { position: relative; height: 300px; }
-
-.stats-box { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; }
+.stats-box { background: #151b2b; border: 1px solid #1e2840; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; margin-bottom: 18px; }
 .stats-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
 .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e2840; font-size: 12px; }
 .stat-row:last-child { border-bottom: none; }
@@ -145,22 +132,7 @@ footer { text-align: center; padding: 24px 0 16px; color: #334466; font-size: 11
 <div class="market-grid" id="marketGrid"></div>
 
 <div class="section-title">تحليل فني <span class="badge" id="selectedCoinLabel">BTC</span></div>
-<div class="analysis-section">
-<div class="chart-box">
-<div class="chart-header">
-<div class="chart-title">الرسم البياني للسعر</div>
-<div class="chart-controls">
-<button class="active" data-days="7" onclick="changeChartDays(7)">7 أيام</button>
-<button data-days="14" onclick="changeChartDays(14)">14 يوم</button>
-<button data-days="30" onclick="changeChartDays(30)">30 يوم</button>
-<button data-days="90" onclick="changeChartDays(90)">3 شهور</button>
-</div>
-</div>
-<div class="chart-wrapper">
-<canvas id="priceChart"></canvas>
-</div>
-</div>
-<div class="stats-box" id="statsBox">
+<div class="stats-box" id="statsBox" style="grid-column:1/-1">
 <div class="stats-title">إحصائيات السعر</div>
 <div class="loading" id="statsLoading"><div class="spinner"></div></div>
 <div id="statsContent"></div>
@@ -179,8 +151,6 @@ CryptoHub v2 | CoinGecko + RSS | <span id="footerUpdate">...</span>
 </footer>
 
 <script>
-let priceChart = null;
-let chartDays = 7;
 let selectedCoinId = 'bitcoin';
 let allCoins = [];
 
@@ -264,65 +234,6 @@ function filterCoins() {
   }).join('');
 }
 
-async function fetchOHLC(coinId, days) {
-  const r = await fetch(`/api/proxy/ohlc?id=${coinId}&days=${days}`);
-  if(!r.ok) throw Error();
-  return r.json();
-}
-
-function renderChart(data) {
-  const canvas = document.getElementById('priceChart');
-  const ctx = canvas.getContext('2d');
-  if(priceChart) priceChart.destroy();
-
-  const labels = data.map(d => new Date(d[0]));
-  const prices = data.map(d => d[4]);
-  const fmt = chartDays <= 7 ? {hour:'2-digit',minute:'2-digit'} : {month:'short',day:'numeric'};
-
-  priceChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'USD',
-        data: prices,
-        borderColor: '#627eea',
-        backgroundColor: ctx => { const g=ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height); g.addColorStop(0,'rgba(98,126,234,0.25)'); g.addColorStop(1,'rgba(98,126,234,0)'); return g; },
-        fill: true,
-        tension: 0.2,
-        pointRadius: 0,
-        pointHitRadius: 8,
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { intersect: false, mode: 'index' },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1a2332',
-          titleColor: '#e0e6f0',
-          bodyColor: '#e0e6f0',
-          borderColor: '#2a3550',
-          borderWidth: 1,
-          padding: 8,
-          displayColors: false,
-          callbacks: {
-            title: items => new Date(items[0].parsed.x).toLocaleDateString('ar-SA', fmt),
-            label: item => '$' + item.parsed.y.toLocaleString(undefined,{maximumFractionDigits:2})
-          }
-        }
-      },
-      scales: {
-        x: { grid: { color: '#1e2840', drawBorder: false }, ticks: { color: '#556688', maxRotation: 0, maxTicksLimit: chartDays<=7?8:10, callback: (v,i,ticks) => new Date(ticks[i].value).toLocaleDateString('ar-SA', fmt) } },
-        y: { grid: { color: '#1e2840', drawBorder: false }, ticks: { color: '#556688', callback: v => '$'+v.toLocaleString() }, position: 'right' }
-      }
-    }
-  });
-}
-
 async function renderStats(coinId) {
   const box = document.getElementById('statsContent');
   const loading = document.getElementById('statsLoading');
@@ -362,23 +273,7 @@ async function selectCoin(id) {
   const cards = document.querySelectorAll('.coin-card');
   const idx = allCoins.findIndex(c => c.id === id);
   if(cards[idx]) cards[idx].classList.add('active');
-  await loadChart(id);
   await renderStats(id);
-}
-
-async function loadChart(coinId) {
-  try {
-    renderChart(await fetchOHLC(coinId, chartDays));
-  } catch {
-    document.getElementById('priceChart').parentElement.innerHTML = '<div class="error-msg">فشل الرسم البياني</div>';
-  }
-}
-
-function changeChartDays(days) {
-  chartDays = days;
-  document.querySelectorAll('.chart-controls button').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.chart-controls button[data-days="${days}"]`).classList.add('active');
-  loadChart(selectedCoinId);
 }
 
 async function fetchNews() {
