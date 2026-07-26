@@ -142,9 +142,9 @@ CryptoHub v2 | CoinGecko + RSS | <span id="footerUpdate">...</span>
 let selectedCoinId = 'bitcoin';
 let allCoins = [];
 
-const coinIds = ['bitcoin','ethereum','tether','bnb','solana','ripple','usd-coin','cardano','dogecoin','avalanche-2','tron','chainlink','polkadot','stellar','shiba-inu','sui','aptos','litecoin','bitcoin-cash','unus-sed-leo'];
+const coinIds = ['bitcoin','ethereum','tether','bnb','solana','ripple','usd-coin','cardano','dogecoin','avalanche-2','tron','chainlink','polkadot','stellar','shiba-inu','sui','aptos','litecoin','bitcoin-cash','unus-sed-leo','near','matic-network','arbitrum','optimism','render-token','fetch-ai','pepe','filecoin','cosmos','hedera-hashgraph'];
 
-const coinDisplayMap = Object.fromEntries(coinIds.map((id,i)=>[id,['BTC','ETH','USDT','BNB','SOL','XRP','USDC','ADA','DOGE','AVAX','TRX','LINK','DOT','XLM','SHIB','SUI','APT','LTC','BCH','LEO'][i]]));
+const coinDisplayMap = Object.fromEntries(coinIds.map((id,i)=>[id,['BTC','ETH','USDT','BNB','SOL','XRP','USDC','ADA','DOGE','AVAX','TRX','LINK','DOT','XLM','SHIB','SUI','APT','LTC','BCH','LEO','NEAR','MATIC','ARB','OP','RENDER','FET','PEPE','FIL','ATOM','HBAR'][i]]));
 
 function fmtPrice(v) { return v < 1 ? '$' + v.toFixed(4) : v < 100 ? '$' + v.toFixed(2) : '$' + v.toLocaleString(undefined,{maximumFractionDigits:0}); }
 function fmtLarge(v) { return v >= 1e12 ? '$'+(v/1e12).toFixed(2)+'T' : v >= 1e9 ? '$'+(v/1e9).toFixed(2)+'B' : v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : '$'+v.toLocaleString(); }
