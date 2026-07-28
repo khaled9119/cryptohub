@@ -26,6 +26,32 @@ HTML_FILE = os.path.join(THIS_DIR, "crypto-dashboard.html")
 img_cache = {}
 IMG_CACHE_TTL = 3600
 data_cache = {}
+VISITS_FILE = os.path.join(THIS_DIR, "visits.json")
+visits_lock = threading.Lock()
+
+def load_visits():
+    try:
+        with open(VISITS_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {"total": 0, "today": 0, "date": time.strftime("%Y-%m-%d")}
+
+def save_visits(v):
+    with open(VISITS_FILE, "w") as f:
+        json.dump(v, f)
+
+def increment_visits():
+    with visits_lock:
+        v = load_visits()
+        v["total"] += 1
+        today = time.strftime("%Y-%m-%d")
+        if v.get("date") != today:
+            v["date"] = today
+            v["today"] = 1
+        else:
+            v["today"] += 1
+        save_visits(v)
+        return v
 DATA_CACHE_TTL = 180
 api_lock = threading.Lock()
 
@@ -291,6 +317,17 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"Proxy {target}: {e}")
                 self._send(json.dumps({"error": str(e)}).encode(), status=502, content_type="application/json")
+            return
+
+        # Visits counter
+        if path == "/api/visits":
+            q = parsed.query
+            if "inc=1" in q:
+                v = increment_visits()
+            else:
+                v = load_visits()
+            body = json.dumps(v).encode()
+            self._send(body, content_type="application/json", extra_headers={"Access-Control-Allow-Origin": "*"})
             return
 
         # News & health API

@@ -134,7 +134,7 @@ footer { text-align: center; padding: 24px 0 16px; color: #334466; font-size: 11
 
 <footer>
 <div class="container">
-CryptoHub v2 | CoinGecko + RSS | <span id="footerUpdate">...</span>
+CryptoHub v2 | CoinGecko + RSS | <span id="footerUpdate">...</span> | <span id="visitCount">0</span> زائر
 </div>
 </footer>
 
@@ -265,6 +265,15 @@ function renderNews(data) {
   }).join('')}</div>`;
 }
 
+async function updateVisits() {
+  try {
+    await fetch('/api/visits?inc=1');
+    const r = await fetch('/api/visits');
+    const d = await r.json();
+    document.getElementById('visitCount').textContent = d.total.toLocaleString();
+  } catch {}
+}
+
 async function refreshAll() {
   const now = new Date();
   document.getElementById('lastUpdate').textContent = formatDate(now);
@@ -289,6 +298,7 @@ async function refreshAll() {
   } catch {
     document.getElementById('newsContainer').innerHTML = '<div class="error-msg">فشل تحميل الأخبار</div>';
   }
+  updateVisits();
 }
 
 document.addEventListener('DOMContentLoaded', refreshAll);
